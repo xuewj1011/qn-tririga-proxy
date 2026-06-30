@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QN-TRIRIGA 集成对接记录</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-muted: #8b949e;
+    --accent: #58a6ff;
+    --accent-dim: #1f6feb;
+    --red: #f85149;
+    --orange: #d2991d;
+    --green: #3fb950;
+    --sidebar-w: 300px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.6;
+    display: flex; flex-direction: column;
+  }
+
+  /* ═══════ PAGE TITLE ═══════ */
+  .page-title {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 14px 24px; font-size: 1.05rem; font-weight: 700;
+    color: #f0f6fc; flex-shrink: 0; user-select: none;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .page-title span { flex: 1; }
+
+  /* ═══════ TOP TAB BAR ═══════ */
+  .tab-bar {
+    display: flex; align-items: center;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 0 16px; height: 44px; flex-shrink: 0; user-select: none;
+  }
+  .tab-bar-left { display: flex; align-items: center; flex: 1; }
+  .tab-item {
+    padding: 10px 20px; font-size: 0.85rem; font-weight: 500;
+    color: var(--text-muted); cursor: pointer;
+    border-bottom: 2px solid transparent; transition: all 0.15s; white-space: nowrap;
+  }
+  .tab-item:hover { color: var(--text); }
+  .tab-item.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .lang-toggle-top {
+    display: flex; border: 1px solid var(--border); border-radius: 4px;
+    overflow: hidden; flex-shrink: 0;
+  }
+  .lang-btn-top {
+    padding: 3px 8px; cursor: pointer; background: transparent;
+    color: var(--text-muted); border: none; font-weight: 500;
+    font-size: 0.72rem; transition: all 0.12s; font-family: inherit;
+  }
+  .lang-btn-top:hover { color: var(--text); }
+  .lang-btn-top.active { background: var(--accent-dim); color: var(--accent); }
+
+  /* ═══════ APP LAYOUT ═══════ */
+  .app-body { display: flex; flex: 1; min-height: 0; }
+
+  /* ═══════ SIDEBAR ═══════ */
+  .sidebar {
+    width: var(--sidebar-w); min-width: var(--sidebar-w);
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; user-select: none;
+  }
+  .sidebar.hidden { display: none; }
+  .sidebar-list { flex: 1; overflow-y: auto; padding: 8px 8px 16px; }
+  .sidebar-list::-webkit-scrollbar { width: 4px; }
+  .sidebar-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; margin-bottom: 2px; border-radius: 8px;
+    cursor: pointer; transition: background 0.12s;
+  }
+  .sidebar-item:hover { background: rgba(88,166,255,0.06); }
+  .sidebar-item.active {
+    background: rgba(88,166,255,0.1);
+    border-left: 3px solid var(--accent); padding-left: 11px;
+  }
+  .sidebar-item .item-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border); flex-shrink: 0; transition: background 0.15s;
+  }
+  .sidebar-item.active .item-dot { background: var(--accent); }
+  .sidebar-item .item-info { flex: 1; min-width: 0; }
+  .sidebar-item .item-date {
+    font-size: 0.85rem; font-weight: 600; color: var(--text);
+    line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .sidebar-item .item-title {
+    font-size: 0.73rem; color: var(--text-muted); line-height: 1.3;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px;
+  }
+  .sidebar-item.active .item-date { color: #f0f6fc; }
+
+  /* ═══════ CONTENT ═══════ */
+  .content-area { flex: 1; overflow-y: auto; overflow-x: hidden; }
+  .content-area::-webkit-scrollbar { width: 6px; }
+  .content-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  .content-inner {
+    max-width: 1100px; margin: 0 auto; width: 100%;
+    padding: 32px 36px 80px;
+  }
+
+  /* record meta */
+  .record-meta {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
+  }
+  .record-meta .meta-date { font-size: 1.1rem; font-weight: 700; color: #f0f6fc; }
+  .record-content { font-size: 0.9rem; line-height: 1.8; color: var(--text); }
+  .record-content p { margin-bottom: 12px; }
+  .record-content h2, .record-content h3 { color: #f0f6fc; margin: 24px 0 12px; }
+  .record-content ul, .record-content ol { padding-left: 20px; margin-bottom: 12px; }
+  .record-content li { margin-bottom: 4px; }
+
+  /* ═══════ FEEDBACK INPUT VIEW ═══════ */
+  .feedback-input-area {
+    display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .feedback-input-area .feedback-name {
+    width: 120px; padding: 10px 14px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 0.9rem; outline: none;
+    font-family: inherit; transition: border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .feedback-input-area .feedback-name:focus { border-color: var(--accent); }
+  .feedback-input-area .feedback-name::placeholder { color: var(--text-muted); }
+  .feedback-input {
+    flex: 1; min-width: 200px; padding: 10px 14px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 0.9rem; outline: none;
+    font-family: inherit; transition: border-color 0.15s;
+    line-height: 1.5;
+  }
+  .feedback-input:focus { border-color: var(--accent); }
+  .feedback-input::placeholder { color: var(--text-muted); }
+  .feedback-submit {
+    padding: 0 20px; background: var(--accent-dim); color: #fff;
+    border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; transition: background 0.12s; font-family: inherit;
+    white-space: nowrap; align-self: stretch;
+  }
+  .feedback-submit:hover { background: #1a5bce; }
+
+  .feedback-list { display: flex; flex-direction: column; gap: 12px; }
+  .feedback-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; position: relative;
+  }
+  .feedback-item:hover { border-color: var(--accent-dim); }
+  .feedback-item .feedback-header {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-bottom: 6px; font-size: 0.78rem; color: var(--text-muted);
+  }
+  .feedback-item .feedback-num {
+    font-size: 0.72rem; font-weight: 700; color: var(--accent);
+    min-width: 24px; flex-shrink: 0; padding-top: 2px;
+  }
+  .feedback-item .feedback-text {
+    flex: 1; font-size: 0.9rem; color: var(--text); line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .feedback-item .feedback-footer {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+  .footer-spacer {
+    min-width: 24px; flex-shrink: 0;
+  }
+  .feedback-item .feedback-name {
+    font-weight: 600; color: var(--accent);
+  }
+  .feedback-item .feedback-time {
+    margin-left: auto;
+  }
+  .feedback-item .feedback-delete {
+    position: absolute; top: 12px; right: 14px;
+    font-size: 0.85rem; color: var(--text-muted); cursor: pointer;
+    padding: 2px 6px; border-radius: 4px; opacity: 0;
+    transition: opacity 0.12s, color 0.12s;
+  }
+  .feedback-item:hover .feedback-delete { opacity: 1; }
+  .feedback-item .feedback-delete:hover { color: var(--red); background: rgba(248,81,73,0.12); }
+
+  /* ═══════ BUILTIN CONTENT ═══════ */
+  .header {
+    padding: 20px 0; display: flex; justify-content: space-between;
+    align-items: flex-start; gap: 20px;
+  }
+  .header h1 { font-size: 1.4rem; font-weight: 600; color: #f0f6fc; }
+  .header .sub { font-size: 0.85rem; color: var(--text-muted); margin-top: 4px; }
+  .header .badge {
+    display: inline-block; background: var(--accent-dim); color: var(--accent);
+    font-size: 0.72rem; padding: 2px 10px; border-radius: 12px;
+    margin-right: 8px; font-weight: 500;
+  }
+  .flow-section { margin-bottom: 40px; }
+  .flow-title {
+    font-size: 1.1rem; font-weight: 600; color: #f0f6fc;
+    margin-bottom: 16px; padding-left: 12px; border-left: 3px solid var(--accent);
+  }
+  .flow-diagram {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 32px 20px; overflow-x: auto;
+  }
+  .flow-row {
+    display: flex; align-items: flex-start; justify-content: center;
+    gap: 0; min-width: 900px; flex-wrap: nowrap;
+  }
+  .flow-col { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 160px; }
+  .flow-col-header {
+    font-size: 0.8rem; font-weight: 700; color: var(--accent); text-align: center;
+    padding: 6px 12px; background: rgba(88,166,255,0.08); border-radius: 6px;
+    margin-bottom: 16px; white-space: nowrap;
+  }
+  .flow-node {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-size: 0.78rem; text-align: center;
+    width: 100%; max-width: 200px; margin-bottom: 8px;
+  }
+  .flow-node.step { border-left: 3px solid var(--accent); text-align: left; }
+  .flow-node.step .step-num { font-size: 0.65rem; color: var(--accent); font-weight: 700; }
+  .flow-arrow-h {
+    color: var(--text-muted); font-size: 1.6rem;
+    display: flex; align-items: center; padding: 0 4px; margin-top: 40px; flex-shrink: 0;
+  }
+  .constraints { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 20px; }
+  .constraint-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .constraint-card .label { font-size: 0.7rem; font-weight: 700; margin-bottom: 6px; color: var(--orange); }
+  .constraint-card .content { font-size: 0.85rem; color: var(--text-muted); }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 48px 0 32px; }
+  .priority-bar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .priority-chip {
+    padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
+    transition: all 0.15s; user-select: none; font-family: inherit;
+  }
+  .priority-chip:hover { border-color: var(--accent); color: var(--text); }
+  .priority-chip.active { background: var(--accent-dim); border-color: var(--accent); color: #fff; }
+  .priority-chip.block { border-color: var(--red); }
+  .priority-chip.block.active { background: rgba(248,81,73,0.2); border-color: var(--red); color: var(--red); }
+  .q-group { margin-bottom: 28px; }
+  .q-group-title {
+    font-size: 1rem; font-weight: 600; color: #f0f6fc; margin-bottom: 12px;
+    padding: 8px 14px; background: var(--surface); border-radius: 6px; cursor: pointer;
+    display: flex; align-items: center; gap: 10px; user-select: none; border: 1px solid var(--border);
+  }
+  .q-group-title:hover { border-color: var(--accent-dim); }
+  .q-group-title .chevron { transition: transform 0.2s; font-size: 0.7rem; color: var(--text-muted); }
+  .q-group.collapsed .questions { display: none; }
+  .q-group.collapsed .chevron { transform: rotate(-90deg); }
+  .q-group .tag { font-size: 0.7rem; border-radius: 4px; padding: 2px 8px; font-weight: 500; }
+  .tag.block { background: rgba(248,81,73,0.15); color: var(--red); }
+  .tag.design { background: rgba(210,153,29,0.15); color: var(--orange); }
+  .questions { display: flex; flex-direction: column; gap: 6px; }
+  .q-item {
+    display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    cursor: pointer; transition: border-color 0.15s; font-size: 0.85rem;
+  }
+  .q-item:hover { border-color: var(--accent-dim); }
+  .q-item input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
+  .q-item .q-num { color: var(--accent); font-weight: 600; font-size: 0.75rem; min-width: 28px; flex-shrink: 0; }
+  .q-item .q-text { flex: 1; }
+  .q-item.checked { opacity: 0.55; }
+  .q-item.checked .q-text { text-decoration: line-through; text-decoration-color: var(--green); }
+  .q-search {
+    width: 100%; padding: 10px 16px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 0.9rem; outline: none; margin-bottom: 16px;
+  }
+  .q-search:focus { border-color: var(--accent); }
+  .q-search::placeholder { color: var(--text-muted); }
+  .progress-bar-wrap { background: var(--border); border-radius: 6px; height: 8px; margin-bottom: 20px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; background: var(--green); border-radius: 6px; transition: width 0.3s; }
+  .progress-text { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
+
+  /* ═══════ MOBILE ═══════ */
+  @media (max-width: 768px) {
+    .tab-bar { overflow-x: auto; padding: 0 8px; }
+    .app-body { flex-direction: column; }
+    .sidebar {
+      width: 100%; min-width: 100%; height: auto; max-height: 180px;
+      border-right: none; border-bottom: 1px solid var(--border);
+    }
+    .sidebar-list { display: flex; overflow-x: auto; overflow-y: hidden; padding: 0 8px; gap: 4px; flex: 0 0 auto; }
+    .sidebar-list::-webkit-scrollbar { height: 3px; }
+    .sidebar-item {
+      flex-shrink: 0; padding: 8px 14px; margin-bottom: 0;
+      border-radius: 20px; white-space: nowrap;
+    }
+    .sidebar-item.active { border-left: none; border-bottom: 3px solid var(--accent); padding-left: 14px; }
+    .sidebar-item .item-dot { display: none; }
+    .content-area { flex: 1; overflow-y: auto; }
+    .content-inner { padding: 20px 16px 60px; }
+    .flow-diagram { overflow-x: visible; padding: 20px 12px; }
+    .flow-row { flex-direction: column; align-items: center; min-width: 0; flex-wrap: wrap; }
+    .flow-arrow-h { transform: rotate(90deg); margin: 8px 0; }
+    .flow-col { min-width: 0; width: 100%; max-width: 280px; }
+    .constraints { grid-template-columns: 1fr; }
+    .feedback-input-area { flex-direction: column; }
+    .feedback-submit { padding: 12px; }
+  }
+
+  @media print {
+    .sidebar, .tab-bar, .page-title { display: none; }
+    .priority-bar, .q-search, .progress-bar-wrap { display: none; }
+    .q-group.collapsed .questions { display: flex !important; }
+    body { background: #fff; color: #000; }
+    .content-area { overflow: visible; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════ PAGE TITLE ═══════ -->
+<div class="page-title">
+  <span id="page-title-text">QN-TRIRIGA 集成对接记录</span>
+  <div class="lang-toggle-top">
+    <button class="lang-btn-top active" onclick="switchLang('zh')" id="btn-zh-top">中文</button>
+    <button class="lang-btn-top" onclick="switchLang('en')" id="btn-en-top">EN</button>
+  </div>
+</div>
+
+<!-- ═══════ TOP TAB BAR ═══════ -->
+<div class="tab-bar">
+  <div class="tab-bar-left" id="tab-bar"></div>
+</div>
+
+<!-- ═══════ BODY ═══════ -->
+<div class="app-body">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-list" id="sidebar-list"></div>
+  </aside>
+  <main class="content-area" id="content-area">
+    <div class="content-inner" id="content-inner"></div>
+  </main>
+</div>
+
+<script>
+// ═══════════ TABS ═══════════
+const tabData = {
+  meetings: {
+    type: 'static',
+    label: { zh: '会议记录', en: 'Meeting Notes' },
+    records: [
+      { id: 'm-1', date: '6月25日', title: 'QN-TRIRIGA 首次技术会议', builtin: true },
+    ],
+  },
+  'party-a': {
+    type: 'input',
+    label: { zh: '甲方问题反馈', en: 'Client Feedback' },
+    placeholder: { zh: '输入甲方反馈的问题，按 Enter 或点提交保存…', en: 'Enter client feedback, press Enter or Submit to save…' },
+    submitLabel: { zh: '提交', en: 'Submit' },
+  },
+  'party-b': {
+    type: 'input',
+    label: { zh: '乙方问题反馈', en: 'Vendor Feedback' },
+    placeholder: { zh: '输入乙方反馈的问题，按 Enter 或点提交保存…', en: 'Enter vendor feedback, press Enter or Submit to save…' },
+    submitLabel: { zh: '提交', en: 'Submit' },
+  },
+};
+
+// ═══════════ i18n ═══════════
+const i18n = {
+  zh: {
+    pageTitle: "QN-TRIRIGA 集成对接记录",
+    header: { badge:"Technical", title:"QN-TRIRIGA 集成对接 — 待沟通文档", sub:"2026年6月25日首次技术会议 · 版本 v1.0" },
+    flowTitle: "对接流程（待辉瑞确认）",
+    roles: {
+      pfizerLabel: "🏢 辉瑞 (Pfizer)", pfizerDesc: "最终客户/业主。员工通过微信扫码报修。TRIRIGA 是辉瑞内部工单系统。",
+      qnLabel: "📱 青鸟 (QingNiao)", qnDesc: "第三方 SaaS / 微信小程序。提供报修入口，负责将工单数据推送到 TRIRIGA。",
+      sodexoLabel: "🔧 Sodexo (索迪斯)", sodexoDesc: "辉瑞外包设施管理服务商。在 TRIRIGA 中接单和处理，是集成的主要推动方。",
+      tririgaLabel: "💻 TRIRIGA", tririgaDesc: "IBM 产品，辉瑞内部工单管理平台。可对外提供 API，但不能主动调外部接口。",
+    },
+    roleTitle: "参与方与系统关系",
+    constraintTitle: "关键约束",
+    constraints: [
+      { label:"🔒 TRIRIGA 只出不进", desc:"TRIRIGA 可以对外暴露 API 被调用，但不能主动调用青鸟的接口。状态同步只能由青鸟轮询拉取，无法接收推送。" },
+      { label:"🔑 认证：Basic Auth", desc:"TRIRIGA OSC API 当前仅支持 HTTP Basic Authentication。对公网传输存在安全隐患，需辉瑞安全团队审批。" },
+      { label:"🌐 网络隔离", desc:"青鸟不在辉瑞内网。服务器对服务器集成，需辉瑞防火墙白名单放行青鸟固定 IP/域名。" },
+      { label:"👤 身份识别", desc:"用户通过个人手机报修，不在辉瑞 IT 环境内。通过采集辉瑞企业邮箱作为身份标识，TRIRIGA 按邮箱匹配员工。" },
+      { label:"📧 通知双通道", desc:"邮件通知由 TRIRIGA 自动发送。小程序内状态展示由青鸟轮询 Get API 获取后自行渲染。两条线并行。" },
+      { label:"🔌 MuleSoft 待定", desc:"辉瑞可能引入 MuleSoft 作为中间件，改善认证和双向通信。尚未确定，可能影响排期和接口规范。" },
+    ],
+    flowCols: [
+      { header:"辉瑞员工", nodes:[
+        { step:1, text:"微信扫码打开青鸟小程序" }, { step:2, text:"填写报修信息（含企业邮箱）" },
+        { text:"📧 辉瑞邮箱收通知", style:"border-style:dashed;font-size:0.72rem;color:var(--text-muted);" },
+      ]},
+      { header:"青鸟（第三方SaaS）", nodes:[
+        { step:3, text:"调用 TRIRIGA Create API<br>推送工单+邮箱" },
+        { step:6, text:"定时调用 Get API<br>轮询工单状态" }, { step:7, text:"小程序内展示状态" },
+      ]},
+      { header:"TRIRIGA（辉瑞内部）", nodes:[
+        { step:4, text:"按邮箱匹配辉瑞员工<br>创建工单" },
+        { step:5, text:"自动发邮件通知<br>（状态变更时）" },
+        { text:"⚠ 不能主动调外部API", style:"border-color:var(--red);font-size:0.72rem;color:var(--red);" },
+      ]},
+      { header:"Sodexo", nodes:[{ step:4, text:"在 TRIRIGA 中<br>接单 → 处理 → 更新状态" }]},
+    ],
+    qTitle: "待沟通问题清单", qSearchPlaceholder: "🔍 搜索问题...",
+    progressText: "已答复 {done} / {total}", noMatch: "没有匹配的问题",
+    priorityAll: "全部", priorityBlock: "🔴 阻塞级", priorityDesign: "🟡 设计级",
+    tagBlock: "阻塞级", tagDesign: "设计级", qUnit: "题",
+    refactoringTitle: "青鸟系统重构说明",
+    refactoringContent: "青鸟报修云当前正处于系统重构阶段。重构完成后将支持以下核心能力：国际化多语言支持、标准化 API 接口开放、AI 辅助运维等功能。重构工作预计于 2026 年 12 月底完成。鉴于重构将涉及系统架构调整与接口规范化，与 TRIRIGA 的集成对接工作建议安排在重构完成后启动，以确保对接质量和长期可维护性。",
+  },
+  en: {
+    pageTitle: "QN-TRIRIGA Integration Records",
+    header: { badge:"Technical", title:"QN-TRIRIGA Integration — Pending Discussion", sub:"June 25, 2026 Kickoff Meeting · v1.0" },
+    flowTitle: "Integration Flow (Pending Pfizer Confirmation)",
+    roles: {
+      pfizerLabel: "🏢 Pfizer", pfizerDesc: "End client. Employees submit service requests via WeChat QR code. TRIRIGA is Pfizer's internal work-order system.",
+      qnLabel: "📱 QingNiao", qnDesc: "Third-party SaaS / WeChat mini-app. Provides the request entry point; responsible for pushing work-order data to TRIRIGA.",
+      sodexoLabel: "🔧 Sodexo", sodexoDesc: "Pfizer's outsourced facilities management provider. Processes work orders in TRIRIGA; main driver of this integration.",
+      tririgaLabel: "💻 TRIRIGA", tririgaDesc: "IBM product, Pfizer's internal work-order platform. Can expose APIs externally but cannot initiate calls to external systems.",
+    },
+    roleTitle: "Stakeholders & System Relationships",
+    constraintTitle: "Key Constraints",
+    constraints: [
+      { label:"🔒 TRIRIGA Outbound-Only", desc:"TRIRIGA can expose APIs to be called by external systems, but cannot initiate calls to QingNiao. Status sync requires QingNiao to poll, not push." },
+      { label:"🔑 Auth: Basic Auth", desc:"TRIRIGA OSC API currently supports only HTTP Basic Authentication. Exposing this to the public internet poses a security risk." },
+      { label:"🌐 Network Isolation", desc:"QingNiao is outside the Pfizer network. Server-to-server integration requires firewall whitelisting of QingNiao's fixed IP/domain." },
+      { label:"👤 User Identity", desc:"Users submit requests from personal phones, outside Pfizer's IT environment. Pfizer business email will be captured as the identity field." },
+      { label:"📧 Dual Notification", desc:"Email notifications are sent automatically by TRIRIGA. In-app status display is rendered by QingNiao after polling the TRIRIGA Get API." },
+      { label:"🔌 MuleSoft TBD", desc:"Pfizer may introduce MuleSoft as middleware to improve authentication and bidirectional communication. Not yet confirmed." },
+    ],
+    flowCols: [
+      { header:"Pfizer Employee", nodes:[
+        { step:1, text:"Open QingNiao mini-app<br>via WeChat QR code" }, { step:2, text:"Fill service request form<br>(incl. business email)" },
+        { text:"📧 Receive email notifications", style:"border-style:dashed;font-size:0.72rem;color:var(--text-muted);" },
+      ]},
+      { header:"QingNiao (3rd-party SaaS)", nodes:[
+        { step:3, text:"Call TRIRIGA Create API<br>Push work order + email" },
+        { step:6, text:"Periodically call Get API<br>Poll work order status" }, { step:7, text:"Display status in mini-app" },
+      ]},
+      { header:"TRIRIGA (Pfizer Internal)", nodes:[
+        { step:4, text:"Match employee by email<br>Create work order" },
+        { step:5, text:"Auto-send email notification<br>(on status change)" },
+        { text:"⚠ Cannot call external APIs", style:"border-color:var(--red);font-size:0.72rem;color:var(--red);" },
+      ]},
+      { header:"Sodexo", nodes:[{ step:4, text:"In TRIRIGA:<br>Accept → Process → Update status" }]},
+    ],
+    qTitle: "Questions to Be Discussed", qSearchPlaceholder: "🔍 Search questions...",
+    progressText: "Answered {done} / {total}", noMatch: "No matching questions",
+    priorityAll: "All", priorityBlock: "🔴 Blocker", priorityDesign: "🟡 Design",
+    tagBlock: "Blocker", tagDesign: "Design", qUnit: "Q",
+    refactoringTitle: "QingNiao System Refactoring",
+    refactoringContent: "QingNiao is currently undergoing a major system refactoring. Upon completion, the platform will support: internationalization (multi-language), standardized API interfaces, and AI-assisted operations features. The refactoring is expected to complete by end of December 2026.",
+  }
+};
+
+// ═══════════ QUESTION DATA ═══════════
+const questionData = [
+  { id:"1", catKey:"api", tag:"block", zh:"TRIRIGA 对外提供哪些接口？是否 REST API？", en:"What APIs does TRIRIGA expose? Are they REST APIs?" },
+  { id:"2", catKey:"api", tag:"block", zh:"创建工单时哪些字段是必填的？请列出所有必填字段及其数据类型。", en:"Which fields are required when creating a work order?" },
+  { id:"3", catKey:"auth", tag:"block", zh:"Basic Auth 对公网传输安全性不足，是否还有其他替代方案？", en:"Is Basic Auth sufficient for public-internet security?" },
+  { id:"4", catKey:"auth", tag:"block", zh:"TRIRIGA API 端点在辉瑞内网，是否已确定为防火墙 IP 白名单方式？", en:"Has firewall IP whitelisting been confirmed?" },
+  { id:"5", catKey:"staging", tag:"block", zh:"辉瑞是否提供 staging/sandbox 环境供青鸟联调？", en:"Will Pfizer provide a staging/sandbox environment?" },
+  { id:"6", catKey:"staging", tag:"block", zh:"测试环境是否有模拟辉瑞员工邮箱账号？", en:"Does the test environment have simulated Pfizer employee accounts?" },
+  { id:"7", catKey:"fields", tag:"design", zh:"TRIRIGA 中\"请求分类\"有哪些具体枚举值？", en:"What are the specific values for \"request class\" in TRIRIGA?" },
+  { id:"8", catKey:"fields", tag:"design", zh:"TRIRIGA 是否还需要其他字段（资产编号、设备类型等）？", en:"Does TRIRIGA require additional fields?" },
+  { id:"9", catKey:"fields", tag:"design", zh:"接口是否支持上传附件/图片？文件大小限制？", en:"Does the API support uploading attachments? File size limits?" },
+  { id:"10", catKey:"fields", tag:"design", zh:"\"位置\"字段在 TRIRIGA 中是什么格式？", en:"What format does the \"location\" field use in TRIRIGA?" },
+  { id:"11", catKey:"identity", tag:"design", zh:"TRIRIGA 是否能通过邮箱 100% 匹配到辉瑞员工？", en:"Can TRIRIGA guarantee 100% match of email to employee?" },
+  { id:"12", catKey:"identity", tag:"design", zh:"报修人可能不是辉瑞员工时如何处理？", en:"How to handle non-Pfizer employees as requesters?" },
+  { id:"13", catKey:"identity", tag:"design", zh:"是否需要青鸟做邮箱格式校验？辉瑞域名规则？", en:"Should QingNiao validate email format?" },
+  { id:"14", catKey:"status", tag:"design", zh:"轮询 Get API 的建议调用频率？QPS 限制？", en:"Recommended polling frequency for Get API? QPS limits?" },
+  { id:"15", catKey:"status", tag:"design", zh:"工单状态有哪些枚举值？请提供状态流转图。", en:"What are the work-order status enum values?" },
+  { id:"16", catKey:"status", tag:"design", zh:"辉瑞是否有计划支持 webhook/回调机制？", en:"Does Pfizer plan to support webhook/callback?" },
+  { id:"17", catKey:"email", tag:"design", zh:"邮件通知是否由 TRIRIGA 自动发送？触发节点？", en:"Are email notifications auto-sent by TRIRIGA? Trigger events?" },
+  { id:"18", catKey:"email", tag:"design", zh:"邮件模板包含哪些信息？青鸟可参考展示？", en:"What info does the email template contain?" },
+  { id:"19", catKey:"email", tag:"design", zh:"邮件通知是否依赖青鸟传入的邮箱字段？降级方案？", en:"Do notifications depend on email passed by QingNiao?" },
+  { id:"20", catKey:"mulesoft", tag:"design", zh:"MuleSoft 是已确定的方向还是备选方案？", en:"Is MuleSoft confirmed or still an alternative?" },
+  { id:"21", catKey:"mulesoft", tag:"design", zh:"MuleSoft 的接口规范和认证方式是什么？", en:"What are the interface specs and auth for MuleSoft?" },
+  { id:"22", catKey:"mulesoft", tag:"design", zh:"MuleSoft 是否能解决 TRIRIGA 不能主动调外部接口的限制？", en:"Can MuleSoft solve TRIRIGA's outbound-only limitation?" },
+  { id:"23", catKey:"error", tag:"design", zh:"API 失败时建议的重试策略（间隔、次数）？", en:"Recommended retry strategy on API failure?" },
+  { id:"24", catKey:"error", tag:"design", zh:"是否有幂等性要求？接口是否通过唯一标识做去重？", en:"Are there idempotency requirements? Dedup by unique ID?" },
+  { id:"25", catKey:"error", tag:"design", zh:"接口 SLA 要求？当前每月工单量？峰值时段？", en:"SLA requirements? Monthly volume? Peak hours?" },
+];
+
+const catKeys = {
+  api: { zh:"API 文档与规范", en:"API Documentation & Specs" },
+  auth: { zh:"安全", en:"Security" },
+  staging: { zh:"测试环境", en:"Test Environment" },
+  fields: { zh:"字段映射与数据", en:"Field Mapping & Data" },
+  identity: { zh:"用户身份识别", en:"User Identity" },
+  status: { zh:"状态同步", en:"Status Sync" },
+  email: { zh:"邮件通知", en:"Email Notifications" },
+  mulesoft: { zh:"MuleSoft", en:"MuleSoft" },
+  error: { zh:"异常与容错", en:"Errors & Fault Tolerance" },
+};
+
+// ═══════════ STATE ═══════════
+let currentLang = localStorage.getItem('qn-lang') || 'zh';
+let currentFilter = 'all';
+const LS_ACTIVE_TAB = 'qn-active-tab';
+
+function getActiveTab() { return localStorage.getItem(LS_ACTIVE_TAB) || 'meetings'; }
+function getActiveRecordId(tabId) {
+  var key = 'qn-active-' + tabId;
+  var id = localStorage.getItem(key);
+  var recs = tabData[tabId].records || [];
+  if (id && recs.find(function(r){ return r.id === id; })) return id;
+  return recs.length ? recs[0].id : null;
+}
+
+// ═══════════ HELPERS ═══════════
+function t(path) {
+  var keys = path.split('.'), obj = i18n[currentLang];
+  for (var i = 0; obj && i < keys.length; i++) obj = obj[keys[i]];
+  return obj || path;
+}
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function formatTime(ts) {
+  var d = new Date(ts);
+  var pad = function(n){ return n<10?'0'+n:''+n; };
+  return (d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
+}
+
+// ═══════════ FEEDBACK API ═══════════
+var API_BASE = 'http://127.0.0.1:5000';
+
+function apiUrl(tabId) {
+  return API_BASE + '/api/feedback/' + (tabId === 'party-a' ? 'party-a' : 'party-b');
+}
+
+function renderFeedbackView(tabId) {
+  var td = tabData[tabId];
+  var phName = currentLang === 'zh' ? '姓名' : 'Name';
+  var phText = currentLang === 'zh' ? td.placeholder.zh : td.placeholder.en;
+  var sl = currentLang === 'zh' ? td.submitLabel.zh : td.submitLabel.en;
+
+  var html = '<div class="feedback-input-area">'
+    + '<input class="feedback-input" id="feedback-input" placeholder="'+escHtml(phText)+'" onkeydown="onFeedbackKeydown(event,\''+tabId+'\')">'
+    + '<input class="feedback-name" id="feedback-name" placeholder="'+escHtml(phName)+'" maxlength="20">'
+    + '<button class="feedback-submit" onclick="addFeedback(\''+tabId+'\')">'+escHtml(sl)+'</button>'
+    + '</div>'
+    + '<div class="feedback-list" id="feedback-list">'
+    + '<div style="text-align:center;color:var(--text-muted);padding:40px;font-size:0.85rem;">加载中…</div>'
+    + '</div>';
+
+  document.getElementById('content-inner').innerHTML = html;
+
+  // Fetch records from API
+  fetch(apiUrl(tabId))
+    .then(function(r){ return r.json(); })
+    .then(function(items){
+      if (items.error) throw items.error;
+      renderFeedbackList(tabId, items);
+    })
+    .catch(function(e){
+      document.getElementById('feedback-list').innerHTML =
+        '<div style="text-align:center;color:var(--red);padding:40px;font-size:0.85rem;">加载失败: '+escHtml(String(e))+'</div>';
+    });
+
+  setTimeout(function(){
+    var inp = document.getElementById('feedback-name');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+function renderFeedbackList(tabId, items) {
+  var list = document.getElementById('feedback-list');
+  if (!items || items.length === 0) {
+    list.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px;font-size:0.85rem;">暂无反馈记录</div>';
+    return;
+  }
+  var total = items.length;
+  var html = '';
+  var needsTranslate = [];
+  for (var i = items.length - 1; i >= 0; i--) {
+    var item = items[i];
+    var num = total - i;
+    var textElId = 'fb-text-' + item.id;
+    var wantEn = currentLang === 'en';
+    var text = wantEn ? item.text_en : item.text_zh;
+    if (!text) {
+      var fallback = wantEn ? item.text_zh : item.text_en;
+      text = fallback || '';
+      if (fallback) needsTranslate.push({id: item.id, text: fallback, target_lang: currentLang});
+    }
+    html += '<div class="feedback-item">'
+      + '<div class="feedback-header">'
+      + '<span class="feedback-num">#'+num+'</span>'
+      + '<span class="feedback-text" id="'+textElId+'">'+escHtml(text)+'</span>'
+      + '</div>'
+      + '<div class="feedback-footer">'
+      + '<span class="footer-spacer"></span>'
+      + (item.name ? '<span class="feedback-name">'+escHtml(currentLang === 'en' && item.name_en ? item.name_en : item.name)+'</span>' : '')
+      + '<span class="feedback-time">'+formatTime(item.time)+'</span>'
+      + '</div>'
+      + '<span class="feedback-delete" onclick="deleteFeedback(\''+tabId+'\',\''+item.id+'\')" title="删除">×</span>'
+      + '</div>';
+  }
+  list.innerHTML = html;
+
+  needsTranslate.forEach(function(nt) {
+    var el = document.getElementById('fb-text-' + nt.id);
+    if (el) el.textContent = '翻译中…';
+    fetch(API_BASE + '/api/translate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: nt.text, target_lang: nt.target_lang})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(result){
+      var el2 = document.getElementById('fb-text-' + nt.id);
+      if (el2 && result.translated) el2.textContent = result.translated;
+    })
+    .catch(function(){
+      var el3 = document.getElementById('fb-text-' + nt.id);
+      if (el3) el3.textContent = nt.text;
+    });
+  });
+}
+
+function addFeedback(tabId) {
+  var nameInp = document.getElementById('feedback-name');
+  var textInp = document.getElementById('feedback-input');
+  var name = nameInp ? nameInp.value.trim() : '';
+  var text = textInp ? textInp.value.trim() : '';
+  if (!name) { if (nameInp) nameInp.focus(); return; }
+  if (!text) { if (textInp) textInp.focus(); return; }
+
+  // Disable button while submitting
+  var btn = document.querySelector('.feedback-submit');
+  if (btn) { btn.disabled = true; btn.textContent = '提交中…'; }
+
+  fetch(apiUrl(tabId), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({name: name, text: text, src_lang: 'auto'})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(result){
+    if (result.error) { alert('提交失败: '+result.error); return; }
+    renderFeedbackView(tabId);
+  })
+  .catch(function(e){
+    alert('提交失败: '+e.message);
+    if (btn) { btn.disabled = false; btn.textContent = tabData[tabId].submitLabel[currentLang === 'zh' ? 'zh' : 'en']; }
+  });
+}
+
+function onFeedbackKeydown(e, tabId) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    addFeedback(tabId);
+  }
+}
+
+function deleteFeedback(tabId, itemId) {
+  if (!confirm('确定删除？')) return;
+  fetch(apiUrl(tabId) + '/' + itemId, { method: 'DELETE' })
+    .then(function(r){ return r.json(); })
+    .then(function(result){
+      if (result.error) { alert('删除失败: '+result.error); return; }
+      renderFeedbackView(tabId);
+    })
+    .catch(function(e){ alert('删除失败: '+e.message); });
+}
+
+// ═══════════ TAB BAR ═══════════
+function renderTabBar() {
+  var activeTab = getActiveTab();
+  var html = '';
+  for (var id in tabData) {
+    var lbl = currentLang === 'zh' ? tabData[id].label.zh : tabData[id].label.en;
+    html += '<div class="tab-item'+(id===activeTab?' active':'')+'" onclick="switchTab(\''+id+'\')">'+escHtml(lbl)+'</div>';
+  }
+  document.getElementById('tab-bar').innerHTML = html;
+}
+
+function switchTab(tabId) {
+  if (!tabData[tabId]) return;
+  localStorage.setItem(LS_ACTIVE_TAB, tabId);
+  renderTabBar();
+
+  var td = tabData[tabId];
+  var sidebar = document.getElementById('sidebar');
+  if (td.type === 'static') {
+    sidebar.classList.remove('hidden');
+    renderSidebar();
+    renderContent();
+  } else {
+    sidebar.classList.add('hidden');
+    renderFeedbackView(tabId);
+  }
+}
+
+// ═══════════ SIDEBAR ═══════════
+function renderSidebar() {
+  var recs = tabData.meetings.records;
+  var activeId = getActiveRecordId('meetings');
+  var listHtml = recs.map(function(r) {
+    var isActive = r.id === activeId;
+    return '<div class="sidebar-item'+(isActive?' active':'')+'" onclick="selectRecord(\''+r.id+'\')">'
+      + '<span class="item-dot"></span><div class="item-info">'
+      + '<div class="item-date">'+escHtml(r.date)+'</div>'
+      + '<div class="item-title">'+escHtml(r.title)+'</div></div></div>';
+  }).join('');
+  if (!recs.length) listHtml = '<div style="padding:20px 14px;color:var(--text-muted);font-size:0.8rem;">暂无记录</div>';
+  document.getElementById('sidebar-list').innerHTML = listHtml;
+}
+
+// ═══════════ BUILTIN CONTENT ═══════════
+function renderFlow() {
+  var cols = t('flowCols'), html = '<div class="flow-row">';
+  cols.forEach(function(col,i){
+    html += '<div class="flow-col"><div class="flow-col-header">'+col.header+'</div>';
+    col.nodes.forEach(function(n){
+      html += '<div class="'+(n.step?'flow-node step':'flow-node')+'" style="'+(n.style||'')+'">';
+      if (n.step) html += '<span class="step-num">'+n.step+'</span> ';
+      html += n.text+'</div>';
+    });
+    html += '</div>';
+    if (i<cols.length-1) html += '<div class="flow-arrow-h">→</div>';
+  });
+  return html+'</div>';
+}
+function renderRoles() {
+  var r = i18n[currentLang].roles;
+  return [{label:r.pfizerLabel,content:r.pfizerDesc},{label:r.qnLabel,content:r.qnDesc},{label:r.sodexoLabel,content:r.sodexoDesc},{label:r.tririgaLabel,content:r.tririgaDesc}]
+    .map(function(c){return '<div class="constraint-card"><div class="label">'+c.label+'</div><div class="content">'+c.content+'</div></div>';}).join('');
+}
+function renderConstraints() {
+  return t('constraints').map(function(c){return '<div class="constraint-card"><div class="label">'+c.label+'</div><div class="content">'+c.desc+'</div></div>';}).join('');
+}
+function renderQuestions(filterTag, searchText) {
+  var sl = (searchText||'').toLowerCase();
+  var checked = JSON.parse(localStorage.getItem('qn-questions-checked')||'{}');
+  var groups = {};
+  questionData.forEach(function(q){
+    if (filterTag!=='all'&&q.tag!==filterTag) return;
+    var qt = q[currentLang]||q.zh, cn = catKeys[q.catKey][currentLang];
+    if (sl && !qt.toLowerCase().includes(sl) && !cn.toLowerCase().includes(sl)) return;
+    if (!groups[q.catKey]) groups[q.catKey] = [];
+    groups[q.catKey].push(q);
+  });
+  var html = '';
+  for (var ck in groups) {
+    var qs = groups[ck], tc = qs[0].tag;
+    html += '<div class="q-group"><div class="q-group-title" onclick="toggleGroup(this)">'
+      + '<span class="chevron">▼</span><span class="tag '+tc+'">'+(tc==='block'?t('tagBlock'):t('tagDesign'))+'</span>'
+      + catKeys[ck][currentLang]+' ('+qs.length+' '+t('qUnit')+')</div><div class="questions">';
+    qs.forEach(function(q){
+      var cid='q-'+q.id, isC=checked[cid];
+      html += '<div class="q-item'+(isC?' checked':'')+'" onclick="toggleCheck(\''+cid+'\',this)">'
+        + '<input type="checkbox" '+(isC?'checked':'')+' onclick="event.stopPropagation()" onchange="toggleCheckBox(\''+cid+'\',this)">'
+        + '<span class="q-num">#'+q.id+'</span><span class="q-text">'+(q[currentLang]||q.zh)+'</span></div>';
+    });
+    html += '</div></div>';
+  }
+  if (!html) html = '<div style="text-align:center;color:var(--text-muted);padding:40px;">'+t('noMatch')+'</div>';
+  var qc = document.getElementById('q-container'); if (qc) qc.innerHTML = html;
+  updateProgress();
+}
+function renderBuiltinContent() {
+  document.getElementById('content-inner').innerHTML =
+    '<div class="header"><div><h1><span class="badge">'+t('header.badge')+'</span>'+t('header.title')+'</h1>'
+    +'<div class="sub">'+t('header.sub')+'</div></div></div>'
+    +'<div class="flow-section"><div class="flow-title">'+t('flowTitle')+'</div><div class="flow-diagram">'+renderFlow()+'</div></div>'
+    +'<div class="flow-section"><div class="flow-title">'+t('roleTitle')+'</div><div class="constraints">'+renderRoles()+'</div></div>'
+    +'<div class="flow-section"><div class="flow-title">'+t('constraintTitle')+'</div><div class="constraints">'+renderConstraints()+'</div></div>'
+    +'<hr class="divider">'
+    +'<div class="flow-section"><div class="flow-title">'+t('qTitle')+'</div></div>'
+    +'<input class="q-search" placeholder="'+t('qSearchPlaceholder')+'" id="q-search" oninput="filterQuestions()">'
+    +'<div class="progress-text" id="progress-text"></div>'
+    +'<div class="progress-bar-wrap"><div class="progress-bar-fill" id="progress-bar" style="width:0%"></div></div>'
+    +'<div class="priority-bar">'
+    +'<div class="priority-chip block active" data-filter="all" onclick="filterByPriority(this,\'all\')">'+t('priorityAll')+' (25)</div>'
+    +'<div class="priority-chip block" data-filter="block" onclick="filterByPriority(this,\'block\')">'+t('priorityBlock')+' (6)</div>'
+    +'<div class="priority-chip" data-filter="design" onclick="filterByPriority(this,\'design\')">'+t('priorityDesign')+' (19)</div>'
+    +'</div><div id="q-container"></div><hr class="divider">'
+    +'<div class="flow-section"><div class="flow-title">'+t('refactoringTitle')+'</div>'
+    +'<div class="constraint-card" style="max-width:100%;font-size:0.9rem;line-height:1.8;">'+t('refactoringContent')+'</div></div>';
+  renderQuestions(currentFilter);
+}
+
+// ═══════════ STATIC RECORD RENDER ═══════════
+function selectRecord(recordId) {
+  localStorage.setItem('qn-active-meetings', recordId);
+  renderSidebar();
+  renderContent();
+}
+
+function renderContent() {
+  var recId = getActiveRecordId('meetings');
+  if (!recId) { document.getElementById('content-inner').innerHTML = ''; return; }
+  var rec = tabData.meetings.records.find(function(r){ return r.id === recId; });
+  if (!rec) { document.getElementById('content-inner').innerHTML = ''; return; }
+  if (rec.builtin) { renderBuiltinContent(); }
+  else if (rec.content) {
+    document.getElementById('content-inner').innerHTML =
+      '<div class="record-meta"><div class="meta-date">'+escHtml(rec.date)+'</div></div>'
+      +'<div class="record-content">'+rec.content+'</div>';
+  } else {
+    document.getElementById('content-inner').innerHTML =
+      '<div class="record-meta"><div class="meta-date">'+escHtml(rec.date)+'</div></div>';
+  }
+  document.getElementById('content-area').scrollTop = 0;
+}
+
+// ═══════════ LANGUAGE ═══════════
+function switchLang(lang) {
+  if (currentLang === lang) return;
+  currentLang = lang;
+  localStorage.setItem('qn-lang', lang);
+  document.getElementById('btn-zh-top').classList.toggle('active', lang==='zh');
+  document.getElementById('btn-en-top').classList.toggle('active', lang==='en');
+  document.getElementById('page-title-text').textContent = i18n[lang].pageTitle;
+  renderTabBar();
+  var at = getActiveTab();
+  if (tabData[at].type === 'input') {
+    renderFeedbackView(at);
+  } else if (at === 'meetings' && getActiveRecordId('meetings') === 'm-1') {
+    renderBuiltinContent();
+  }
+}
+
+// ═══════════ QUESTIONS ═══════════
+function toggleCheck(id,el){var cb=el.querySelector('input');cb.checked=!cb.checked;toggleCheckBox(id,cb);}
+function toggleCheckBox(id,cb){
+  var c=JSON.parse(localStorage.getItem('qn-questions-checked')||'{}');
+  if(cb.checked){c[id]=true;cb.closest('.q-item').classList.add('checked');}
+  else{delete c[id];cb.closest('.q-item').classList.remove('checked');}
+  localStorage.setItem('qn-questions-checked',JSON.stringify(c));updateProgress();
+}
+function toggleGroup(el){el.closest('.q-group').classList.toggle('collapsed');}
+function updateProgress(){
+  var c=JSON.parse(localStorage.getItem('qn-questions-checked')||'{}');
+  var d=Object.keys(c).length,t=questionData.length;
+  var pt=document.getElementById('progress-text'),pb=document.getElementById('progress-bar');
+  if(pt)pt.textContent=i18n[currentLang].progressText.replace('{done}',d).replace('{total}',t);
+  if(pb)pb.style.width=t?(d/t*100)+'%':'0%';
+}
+function filterQuestions(){
+  var qs=document.getElementById('q-search'),st=qs?qs.value:'';
+  var ac=document.querySelector('.priority-chip.active');
+  currentFilter=ac?ac.dataset.filter:'all';renderQuestions(currentFilter,st);
+}
+function filterByPriority(chip,tag){
+  document.querySelectorAll('.priority-chip').forEach(function(c){c.classList.remove('active');});
+  chip.classList.add('active');currentFilter=tag;
+  var qs=document.getElementById('q-search');renderQuestions(tag,qs?qs.value:'');
+}
+
+// ═══════════ INIT ═══════════
+(function(){
+  document.getElementById('page-title-text').textContent = i18n[currentLang].pageTitle;
+  document.getElementById('btn-zh-top').classList.toggle('active',currentLang==='zh');
+  document.getElementById('btn-en-top').classList.toggle('active',currentLang==='en');
+  renderTabBar();
+  var at = getActiveTab();
+  if (tabData[at].type === 'input') {
+    document.getElementById('sidebar').classList.add('hidden');
+    renderFeedbackView(at);
+  } else {
+    renderSidebar();
+    renderContent();
+  }
+})();
+</script>
+</body>
+</html>
