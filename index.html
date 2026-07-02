@@ -301,6 +301,13 @@
     border-bottom: 1px solid rgba(48,54,61,0.4);
   }
   .reply-item:last-child { border-bottom: none; }
+  .reply-item .reply-delete {
+    color: var(--text-muted); cursor: pointer; font-size: 0.85rem;
+    padding: 0 4px; flex-shrink: 0; align-self: flex-start;
+    opacity: 0; transition: opacity 0.12s, color 0.12s;
+  }
+  .reply-item:hover .reply-delete { opacity: 1; }
+  .reply-item .reply-delete:hover { color: var(--red); }
   .reply-party-tag {
     font-size: 0.65rem; padding: 1px 6px; border-radius: 3px; font-weight: 600;
     flex-shrink: 0; align-self: flex-start; margin-top: 1px;
@@ -774,7 +781,9 @@ function fetchReplies(item, tabId, feedbackId) {
           + '<div class="reply-body">'
           + '<div class="reply-text">'+escHtml(r.text)+'</div>'
           + '<div class="reply-meta">'+escHtml(r.replier)+' · '+formatTime(r.time)+'</div>'
-          + '</div></div>';
+          + '</div>'
+          + '<span class="reply-delete" onclick="deleteReply(\''+tabId+'\',\''+feedbackId+'\',\''+r.id+'\')">×</span>'
+          + '</div>';
       }
       list.innerHTML = html;
     })
@@ -819,6 +828,18 @@ function onReplyKeydown(e, tabId, feedbackId) {
     e.preventDefault();
     addReply(tabId, feedbackId);
   }
+}
+
+function deleteReply(tabId, feedbackId, replyId) {
+  if (!confirm('确定删除这条回复？')) return;
+  fetch(replyUrl(tabId, feedbackId) + '/' + replyId, { method: 'DELETE' })
+    .then(function(r){ return r.json(); })
+    .then(function(result){
+      if (result.error) { alert('删除失败: '+result.error); return; }
+      var item = document.getElementById('fb-item-' + feedbackId);
+      if (item) fetchReplies(item, tabId, feedbackId);
+    })
+    .catch(function(e){ alert('删除失败: '+e.message); });
 }
 
 // ═══════════ TAB BAR ═══════════

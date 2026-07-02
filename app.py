@@ -340,6 +340,22 @@ def add_reply(party, feedback_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/api/replies/<party>/<feedback_id>/<reply_id>", methods=["DELETE"])
+def delete_reply(party, feedback_id, reply_id):
+    if not REPLY_TABLE["app_token"] or not REPLY_TABLE["table_id"]:
+        return jsonify({"error": "reply table not configured"}), 503
+    try:
+        token = get_feishu_token()
+        url = (f"https://open.feishu.cn/open-apis/bitable/v1/apps/{REPLY_TABLE['app_token']}"
+               f"/tables/{REPLY_TABLE['table_id']}/records/{reply_id}")
+        resp = _session.delete(url, headers={"Authorization": f"Bearer {token}"}).json()
+        if resp.get("code") != 0:
+            return jsonify({"error": resp.get("msg", "delete failed")}), 500
+        return jsonify({"ok": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/")
 def index():
     return app.send_static_file("index.html")
