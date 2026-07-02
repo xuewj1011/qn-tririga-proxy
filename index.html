@@ -284,6 +284,54 @@
   .progress-bar-fill { height: 100%; background: var(--green); border-radius: 6px; transition: width 0.3s; }
   .progress-text { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; }
 
+  /* ═══════ REPLY THREAD ═══════ */
+  .reply-toggle {
+    padding: 6px 14px 8px; font-size: 0.75rem; color: var(--accent); cursor: pointer;
+    display: flex; align-items: center; gap: 6px; user-select: none;
+    border-top: 1px solid rgba(48,54,61,0.4); margin: 0 16px;
+  }
+  .reply-toggle:hover { color: #79c0ff; }
+  .reply-toggle .chevron { transition: transform 0.2s; font-size: 0.6rem; }
+  .feedback-item.expanded .reply-toggle .chevron { transform: rotate(90deg); }
+  .reply-thread { display: none; border-top: 1px solid var(--border); margin: 0 16px; }
+  .feedback-item.expanded .reply-thread { display: block; }
+  .reply-list { padding: 6px 0; }
+  .reply-item {
+    display: flex; gap: 8px; padding: 8px 0; font-size: 0.83rem;
+    border-bottom: 1px solid rgba(48,54,61,0.4);
+  }
+  .reply-item:last-child { border-bottom: none; }
+  .reply-party-tag {
+    font-size: 0.65rem; padding: 1px 6px; border-radius: 3px; font-weight: 600;
+    flex-shrink: 0; align-self: flex-start; margin-top: 1px;
+  }
+  .reply-party-tag.party-a { background: rgba(88,166,255,0.15); color: var(--accent); }
+  .reply-party-tag.party-b { background: rgba(63,185,80,0.15); color: var(--green); }
+  .reply-body { flex: 1; min-width: 0; }
+  .reply-body .reply-text { line-height: 1.5; word-break: break-word; }
+  .reply-body .reply-meta { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+  .reply-input-row {
+    display: flex; gap: 6px; padding: 8px 0 12px; align-items: center;
+  }
+  .reply-input-row select {
+    width: 64px; padding: 5px 4px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-size: 0.72rem; font-family: inherit;
+  }
+  .reply-input-row input {
+    padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; color: var(--text); font-size: 0.8rem; outline: none; font-family: inherit;
+  }
+  .reply-input-row input:focus { border-color: var(--accent); }
+  .reply-input-row .reply-name-inp { width: 72px; }
+  .reply-input-row .reply-text-inp { flex: 1; }
+  .reply-input-row button {
+    padding: 5px 12px; background: var(--accent-dim); color: #fff;
+    border: none; border-radius: 4px; font-size: 0.75rem; font-weight: 600;
+    cursor: pointer; font-family: inherit; white-space: nowrap;
+  }
+  .reply-input-row button:hover { background: #1a5bce; }
+  .reply-empty { padding: 10px 0; font-size: 0.78rem; color: var(--text-muted); }
+
   /* ═══════ MOBILE ═══════ */
   @media (max-width: 768px) {
     .tab-bar { overflow-x: auto; padding: 0 8px; }
@@ -523,7 +571,7 @@ function t(path) {
 }
 function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function formatTime(ts) {
-  var d = new Date(ts);
+  var d = new Date(Number(ts));
   var pad = function(n){ return n<10?'0'+n:''+n; };
   return (d.getMonth()+1)+'-'+pad(d.getDate())+' '+pad(d.getHours())+':'+pad(d.getMinutes());
 }
@@ -590,7 +638,11 @@ function renderFeedbackList(tabId, items) {
       text = fallback || '';
       if (fallback) needsTranslate.push({id: item.id, text: fallback, target_lang: currentLang});
     }
-    html += '<div class="feedback-item">'
+    var replyLabel = currentLang === 'zh' ? '回复' : 'Reply';
+    var replyPhName = currentLang === 'zh' ? '姓名' : 'Name';
+    var replyPhText = currentLang === 'zh' ? '输入回复…' : 'Reply…';
+    var replySendLabel = currentLang === 'zh' ? '回复' : 'Send';
+    html += '<div class="feedback-item" id="fb-item-'+item.id+'">'
       + '<div class="feedback-header">'
       + '<span class="feedback-num">#'+num+'</span>'
       + '<span class="feedback-text" id="'+textElId+'">'+escHtml(text)+'</span>'
@@ -601,6 +653,21 @@ function renderFeedbackList(tabId, items) {
       + '<span class="feedback-time">'+formatTime(item.time)+'</span>'
       + '</div>'
       + '<span class="feedback-delete" onclick="deleteFeedback(\''+tabId+'\',\''+item.id+'\')" title="删除">×</span>'
+      + '<div class="reply-toggle" onclick="toggleReplies(this,\''+tabId+'\',\''+item.id+'\')">'
+      + '<span class="chevron">▶</span> '+escHtml(replyLabel)
+      + '</div>'
+      + '<div class="reply-thread">'
+      + '<div class="reply-list"></div>'
+      + '<div class="reply-input-row">'
+      + '<select class="reply-party-sel">'
+      + '<option value="party-a"'+(tabId==='party-a'?' selected':'')+'>甲方</option>'
+      + '<option value="party-b"'+(tabId==='party-b'?' selected':'')+'>乙方</option>'
+      + '</select>'
+      + '<input class="reply-name-inp" placeholder="'+escHtml(replyPhName)+'" maxlength="20">'
+      + '<input class="reply-text-inp" placeholder="'+escHtml(replyPhText)+'" onkeydown="onReplyKeydown(event,\''+tabId+'\',\''+item.id+'\')">'
+      + '<button class="reply-submit-btn" onclick="addReply(\''+tabId+'\',\''+item.id+'\')">'+escHtml(replySendLabel)+'</button>'
+      + '</div>'
+      + '</div>'
       + '</div>';
   }
   list.innerHTML = html;
@@ -669,6 +736,89 @@ function deleteFeedback(tabId, itemId) {
       renderFeedbackView(tabId);
     })
     .catch(function(e){ alert('删除失败: '+e.message); });
+}
+
+// ═══════════ REPLY FUNCTIONS ═══════════
+function replyUrl(tabId, feedbackId) {
+  return API_BASE + '/api/replies/' + (tabId === 'party-a' ? 'party-a' : 'party-b') + '/' + feedbackId;
+}
+
+function toggleReplies(el, tabId, feedbackId) {
+  var item = el.closest('.feedback-item');
+  var wasExpanded = item.classList.contains('expanded');
+  item.classList.toggle('expanded');
+  if (!wasExpanded) {
+    fetchReplies(item, tabId, feedbackId);
+  }
+}
+
+function fetchReplies(item, tabId, feedbackId) {
+  var list = item.querySelector('.reply-list');
+  if (!list) return;
+  list.innerHTML = '<div class="reply-empty">加载中…</div>';
+  fetch(replyUrl(tabId, feedbackId))
+    .then(function(r){ return r.json(); })
+    .then(function(replies){
+      if (replies.error) throw replies.error;
+      if (!replies.length) {
+        list.innerHTML = '<div class="reply-empty">暂无回复</div>';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < replies.length; i++) {
+        var r = replies[i];
+        var partyLabel = r.party === 'party-b' ? '乙方' : '甲方';
+        var partyClass = r.party === 'party-b' ? 'party-b' : 'party-a';
+        html += '<div class="reply-item">'
+          + '<span class="reply-party-tag '+partyClass+'">'+escHtml(partyLabel)+'</span>'
+          + '<div class="reply-body">'
+          + '<div class="reply-text">'+escHtml(r.text)+'</div>'
+          + '<div class="reply-meta">'+escHtml(r.replier)+' · '+formatTime(r.time)+'</div>'
+          + '</div></div>';
+      }
+      list.innerHTML = html;
+    })
+    .catch(function(e){
+      list.innerHTML = '<div class="reply-empty" style="color:var(--red)">加载失败</div>';
+    });
+}
+
+function addReply(tabId, feedbackId) {
+  var item = document.getElementById('fb-item-' + feedbackId);
+  if (!item) return;
+  var sel = item.querySelector('.reply-party-sel');
+  var nameInp = item.querySelector('.reply-name-inp');
+  var textInp = item.querySelector('.reply-text-inp');
+  var btn = item.querySelector('.reply-submit-btn');
+  var replier = nameInp ? nameInp.value.trim() : '';
+  var text = textInp ? textInp.value.trim() : '';
+  if (!replier) { if (nameInp) nameInp.focus(); return; }
+  if (!text) { if (textInp) textInp.focus(); return; }
+  if (btn) { btn.disabled = true; btn.textContent = '发送中…'; }
+  var party = sel ? sel.value : (tabId === 'party-a' ? 'party-a' : 'party-b');
+  fetch(replyUrl(tabId, feedbackId), {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({replier: replier, text: text})
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(result){
+    if (result.error) { alert('回复失败: '+result.error); if (btn) { btn.disabled = false; btn.textContent = '回复'; } return; }
+    if (textInp) textInp.value = '';
+    fetchReplies(item, tabId, feedbackId);
+    if (btn) { btn.disabled = false; btn.textContent = '回复'; }
+  })
+  .catch(function(e){
+    alert('回复失败: '+e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '回复'; }
+  });
+}
+
+function onReplyKeydown(e, tabId, feedbackId) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    addReply(tabId, feedbackId);
+  }
 }
 
 // ═══════════ TAB BAR ═══════════

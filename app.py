@@ -138,6 +138,12 @@ def name_to_pinyin(name):
         return name  # fallback
 
 
+# ═══════════ REPLIES BITABLE ═══════════
+REPLY_TABLE = {
+    "app_token": "UWarbCF92ak7GDseUuNclUDpnwe",
+    "table_id": "tbl2xY4cvgOKhfRw",
+}
+
 # ═══════════ API ROUTES ═══════════
 
 def _split_combined(val, idx=0):
@@ -266,6 +272,72 @@ def api_translate():
         return jsonify({"error": "DEEPSEEK not configured"}), 503
     result = translate_text(text, target_lang)
     return jsonify({"original": text, "target_lang": target_lang, "translated": result})
+
+
+@app.route("/api/replies/<party>/<feedback_id>", methods=["GET"])
+def get_replies(party, feedback_id):
+    if not REPLY_TABLE["app_token"] or not REPLY_TABLE["table_id"]:
+        return jsonify({"error": "reply table not configured"}), 503
+    try:
+        token = get_feishu_token()
+        # Use filter to get replies for this feedback_id
+        url = (f"https://open.feishu.cn/open-apis/bitable/v1/apps/{REPLY_TABLE['app_token']}"
+               f"/tables/{REPLY_TABLE['table_id']}/records"
+               f"?filter=CurrentValue.[关联反馈ID]=\"{feedback_id}\""
+               f"&page_size=100")
+        resp = _session.get(url, headers={"Authorization": f"Bearer {token}"}).json()
+        if resp.get("code") != 0:
+            return jsonify({"error": resp.get("msg", "feishu error")}), 500
+        replies = []
+        for item in resp.get("data", {}).get("items", []):
+            f = item.get("fields", {})
+            replies.append({
+                "id": item.get("record_id", ""),
+                "feedback_id": feedback_id,
+                "party": f.get("回复方", ""),
+                "replier": f.get("回复者", ""),
+                "text": f.get("回复内容", ""),
+                "time": f.get("回复时间", 0),
+            })
+        return jsonify(replies)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/replies/<party>/<feedback_id>", methods=["POST"])
+def add_reply(party, feedback_id):
+    if not REPLY_TABLE["app_token"] or not REPLY_TABLE["table_id"]:
+        return jsonify({"error": "reply table not configured"}), 503
+    data = request.json or {}
+    replier = data.get("replier", "").strip()
+    text = data.get("text", "").strip()
+    if not replier or not text:
+        return jsonify({"error": "replier and text required"}), 400
+    try:
+        token = get_feishu_token()
+        url = (f"https://open.feishu.cn/open-apis/bitable/v1/apps/{REPLY_TABLE['app_token']}"
+               f"/tables/{REPLY_TABLE['table_id']}/records")
+        ts = int(time.time() * 1000)
+        fields = {
+            "关联反馈ID": feedback_id,
+            "回复方": party,
+            "回复者": replier,
+            "回复内容": text,
+            "回复时间": ts,
+        }
+        resp = _session.post(url, headers={"Authorization": f"Bearer {token}"}, json={"fields": fields}).json()
+        if resp.get("code") != 0:
+            return jsonify({"error": resp.get("msg", "write failed")}), 500
+        return jsonify({
+            "id": resp["data"]["record"]["record_id"],
+            "feedback_id": feedback_id,
+            "party": party,
+            "replier": replier,
+            "text": text,
+            "time": ts,
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/")
