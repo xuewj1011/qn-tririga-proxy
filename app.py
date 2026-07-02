@@ -22,6 +22,7 @@ if os.path.exists(_DOTENV):
 
 # DEBUG
 print(f"Server starting... DEEPSEEK key loaded: {bool(os.environ.get('DEEPSEEK_API_KEY'))}", flush=True)
+print(f"FEISHU_APP_SECRET: len={len(os.environ.get('FEISHU_APP_SECRET', ''))}, starts={repr(os.environ.get('FEISHU_APP_SECRET', '')[:8])}", flush=True)
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app)
@@ -63,6 +64,8 @@ def get_feishu_token():
         "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
         json={"app_id": FEISHU_APP_ID, "app_secret": FEISHU_APP_SECRET},
     ).json()
+    if "tenant_access_token" not in resp:
+        raise Exception(resp.get("msg", resp.get("error", "feishu auth failed")))
     token = resp["tenant_access_token"]
     _token_cache["token"] = token
     _token_cache["expires_at"] = now + resp.get("expire", 7200)
@@ -146,37 +149,40 @@ def _split_combined(val, idx=0):
 
 @app.route("/api/feedback/<party>", methods=["GET"])
 def get_feedback(party):
-    cfg = BITABLES.get(party)
-    if not cfg:
-        return jsonify({"error": "invalid party"}), 400
-    token = get_feishu_token()
-    url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{cfg['app_token']}/tables/{cfg['table_id']}/records"
-    resp = _session.get(url, headers={"Authorization": f"Bearer {token}"}).json()
-    if resp.get("code") != 0:
-        return jsonify({"error": resp.get("msg", "feishu error")}), 500
-    records = []
-    for item in resp.get("data", {}).get("items", []):
-        f = item.get("fields", {})
-        rid = item.get("record_id", "")
-        # split combined field "zh\n---\nen" into text_zh / text_en
-        combined = f.get("问题描述", "")
-        parts = combined.split("\n---\n", 1)
-        text_zh = parts[0]
-        text_en = parts[1] if len(parts) > 1 else ""
-        # fallback: try to extract ms timestamp from record_id if no time field
-        t = f.get("提交时间", "")
-        if not t and rid:
-            try: t = int(rid[3:16]) if len(rid) > 16 else 0
-            except: t = 0
-        records.append({
-            "id": rid,
-            "name": _split_combined(f.get("姓名", "")),
-            "name_en": _split_combined(f.get("姓名", ""), 1),
-            "text_zh": text_zh,
-            "text_en": text_en,
-            "time": t,
-        })
-    return jsonify(records)
+    try:
+        cfg = BITABLES.get(party)
+        if not cfg:
+            return jsonify({"error": "invalid party"}), 400
+        token = get_feishu_token()
+        url = f"https://open.feishu.cn/open-apis/bitable/v1/apps/{cfg['app_token']}/tables/{cfg['table_id']}/records"
+        resp = _session.get(url, headers={"Authorization": f"Bearer {token}"}).json()
+        if resp.get("code") != 0:
+            return jsonify({"error": resp.get("msg", "feishu error")}), 500
+        records = []
+        for item in resp.get("data", {}).get("items", []):
+            f = item.get("fields", {})
+            rid = item.get("record_id", "")
+            # split combined field "zh\n---\nen" into text_zh / text_en
+            combined = f.get("问题描述", "")
+            parts = combined.split("\n---\n", 1)
+            text_zh = parts[0]
+            text_en = parts[1] if len(parts) > 1 else ""
+            # fallback: try to extract ms timestamp from record_id if no time field
+            t = f.get("提交时间", "")
+            if not t and rid:
+                try: t = int(rid[3:16]) if len(rid) > 16 else 0
+                except: t = 0
+            records.append({
+                "id": rid,
+                "name": _split_combined(f.get("姓名", "")),
+                "name_en": _split_combined(f.get("姓名", ""), 1),
+                "text_zh": text_zh,
+                "text_en": text_en,
+                "time": t,
+            })
+        return jsonify(records)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/feedback/<party>", methods=["POST"])
@@ -269,4 +275,4 @@ def index():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port, debug=False)
